@@ -41,5 +41,6 @@ def scale(s):
 
 
 def objDraw(vertex, mesh, mat_transform, color, loc):
-    glUniformMatrix4fv(loc, 1, GL_TRUE, mat_transform)
+    glUniformMatrix4fv(loc[0], 1, GL_TRUE, mat_transform)
+    glUniform4f(loc[1], color[0], color[1], color[2], color[3])
     glDrawArrays(mesh, vertex[0], vertex[1])

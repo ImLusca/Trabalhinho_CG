@@ -1,4 +1,6 @@
 
+from calendar import c
+from cmath import sqrt
 from fnmatch import translate
 from operator import concat
 import glfw
@@ -26,9 +28,15 @@ teclas = [0] * 4
 
 def camera(window, bt, scanCode, action, mods):
     global teclas
-    print(action, bt)
 
-    if (265 < bt < 262):
+    x, y = glfw.get_cursor_pos(window)
+    x = x / (largura/2) - 1
+    y = y / (altura/2) - 1
+
+    print(x, y)
+    p = posBola(1)
+    print(p[0], p[1])
+    if (265 < bt or bt < 262):
         return
 
     if (action == 0):
@@ -45,7 +53,7 @@ def zoom(win, dx, dy):
     if (dy > 0):
         zoomVal += zoomVal < 20 if 0.005 else 0
     elif (dy < 0):
-        zoomVal -= zoomVal > 1.0 if 0.005 else 0
+        zoomVal -= zoomVal > 1.00 if 0.005 else 0
 
 
 glfw.set_scroll_callback(window, zoom)
@@ -60,14 +68,14 @@ vertex_code = """
         """
 
 fragment_code = """
+        uniform vec4 color;
         void main(){
-            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            gl_FragColor = color;
         }
         """
 
 
 # ### Requisitando slot para a GPU para nossos programas Vertex e Fragment Shaders
-
 
 
 # Request a program and shader slots from GPU
@@ -121,29 +129,36 @@ glUseProgram(program)
 quadrado = np.zeros(4, [("position", np.float32, 2)])
 # preenchendo as coordenadas de cada vértice
 quadrado['position'] = [
-    (+0.2, +0.4),
-    (+0.3, +0.4),
-    (+0.2, +0.5),
-    (+0.3, +0.5)
+    (0.4, 0.6),
+    (0.4, 0.8),
+    (0.6, 0.6),
+    (0.6, 0.8)
 ]
 
-bumerangue = np.zeros(10, [("position", np.float32, 2)])
+terreno = np.zeros(4, [("position", np.float32, 2)])
 
-bumerangue['position'] = [
-    (+0.75, -0.25),  # vertice 2
-    (+0.70, -0.28),
-    (+0.50, +0.125),  # vertice 1
-    (+0.25, +0.0),  # vertice 3
-    (+0.0, +0.25),  # vertice 0
-    (+0.0, +0.0625),  # vertice 4
-    (-0.50, +0.125),  # vertice 7
-    (-0.25, +0.0),  # vertice 5
-    (-0.75, -0.25),  # vertice 6
-    (-0.70, -0.28)
+terreno["position"] = [
+    (-10.0, -10.0),
+    (-10.0, 0.0),
+    (10.0, -10.0),
+    (10.0, 0.0)
 ]
 
 
-vertices = np.concatenate((quadrado, bumerangue))
+def retornaBola(x, y, r, nv):
+    circle = np.zeros(nv, [("position", np.float32, 2)])
+    dPi = 6.28318
+    for i in range(nv):
+        cX = x + (r * math.cos(i * dPi/nv))
+        cY = y + (r * math.sin(i * dPi/nv))
+        circle[i] = [cX, cY]
+    return circle
+
+
+ball = retornaBola(0, 0, 0.035, 10)
+
+vertices = np.concatenate((quadrado, terreno, ball))['position']
+print(vertices)
 
 # Request a buffer slot from GPU
 buffer = glGenBuffers(1)
@@ -157,22 +172,23 @@ stride = vertices.strides[0]
 offset = ctypes.c_void_p(0)
 
 loc = glGetAttribLocation(program, "position")
+loc_color = glGetUniformLocation(program, "color")
 glEnableVertexAttribArray(loc)
-
 glVertexAttribPointer(loc, 2, GL_FLOAT, False, stride, offset)
 
 
 def movimentaCam():
     global posicaoX
     global posicaoY
+    velocidadeCam = 0.04
     if (teclas[0] == 1):
-        posicaoX += 0.02
+        posicaoX += velocidadeCam
     if (teclas[1] == 1):
-        posicaoX -= 0.02
+        posicaoX -= velocidadeCam
     if (teclas[2] == 1):
-        posicaoY += 0.02
+        posicaoY -= velocidadeCam
     if (teclas[3] == 1):
-        posicaoY -= 0.02
+        posicaoY += velocidadeCam
 
 
 def multiplica_matriz(a, b):
@@ -186,12 +202,48 @@ def multiplica_matriz(a, b):
 glfw.show_window(window)
 
 
+def posBola(r):
+    x, y = glfw.get_cursor_pos(window)
+    x = x / (largura/2) - 1
+    y = y / (altura/2) - 1
+    H = math.sqrt(pow(x, 2) + pow(y, 2))
+
+    if (y >= 0):
+        if (x > 0):
+            return [r, 0]
+        else:
+            return [-r, 0]
+
+    if ((2*H*x) == 0):
+        return [0, 0]
+
+    exp = (pow(H, 2) + pow(x, 2) - pow(y, 2)) / (2*H*x)
+    a = math.acos(exp)
+    return [math.cos(a) * r, math.sin(a) * r]
+
+
+def calcTrajetoria(x, y, anguloLance, forca):
+    vet_vert = forca * math.sin(anguloLance)
+    vet_hor = forca * math.cos(anguloLance)
+    gravidade = 0.01
+    resVert = 0
+    i = 0
+    pontosX, pontosY = []
+    while vet_hor >= 0:
+        i += 1
+        vet_vert -= gravidade
+        vet_h = vet_hor * i
+        pontosX.append(x + vet_vert)
+        pontosY.append(y + vet_h)
+    return pontosX, pontosY
+
+
 d = 0.0
 sentidoTransY = False
 sentidoTrans = False
 sentidoGiro = False
-x = 0.25
-y = 0.45
+x = 0.5
+y = 0.7
 diferenca = 0.009
 mat_global_transform = mat_identity()
 
@@ -209,22 +261,27 @@ while not glfw.window_should_close(window):
     mat_global_transform = multiplica_matriz(
         scale(zoomVal), mat_translate(-posicaoX, -posicaoY))
 
-  
     mat_transformacaoBumerangue = multiplica_matriz(
         mat_global_transform,
         mat_rotacao)
 
     loc = glGetUniformLocation(program, "mat_transform")
 
-    # glPolygonMode(GL_FRONT_AND_BACK,GL_LINE) ## ative esse comando para enxergar os triângulos
+    # ative esse comando para enxergar os triângulos
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
     glClear(GL_COLOR_BUFFER_BIT)
     glClearColor(1.0, 1.0, 1.0, 1.0)
 
     objDraw([0, 4], GL_TRIANGLE_STRIP,
-            mat_transformacaoBumerangue, [0.7, 0.3, 0.0, 0.0], loc)
+            mat_transformacaoBumerangue, [0.9, 0.5, 0.0, 0.0], [loc, loc_color])
 
-    objDraw([4, 9], GL_TRIANGLE_STRIP,
-            mat_global_transform, [0.7, 0.3, 0.0, 0.0], loc)
+    p = posBola(0.4)
+    mat_rotBall = mat_translate(p[0], p[1])
+    objDraw([4, 4], GL_TRIANGLE_STRIP,
+            mat_global_transform, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
+
+    objDraw([8, 10], GL_TRIANGLE_FAN,
+            multiplica_matriz(mat_global_transform, mat_rotBall), [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
 
     glfw.swap_buffers(window)
 
