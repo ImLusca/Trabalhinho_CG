@@ -1,11 +1,8 @@
-
-from calendar import c
-from cmath import sqrt
 from fnmatch import translate
 from operator import concat
 import glfw
 from OpenGL.GL import *
-import OpenGL.GL.shaders
+import random as rnd
 import numpy as np
 from transformacoes import *
 
@@ -33,9 +30,14 @@ def camera(window, bt, scanCode, action, mods):
     x = x / (largura/2) - 1
     y = y / (altura/2) - 1
 
-    print(x, y)
-    p = posBola(1)
-    print(p[0], p[1])
+    # print(x, y)
+    # p = posBola(1)
+    # print(p[0], p[1])
+
+    if (scanCode == 36 and action == 1):
+        p = posBola(1)
+        lancamentoBola(p[0], p[1])
+
     if (265 < bt or bt < 262):
         return
 
@@ -125,15 +127,24 @@ if not glGetProgramiv(program, GL_LINK_STATUS):
 # Make program the default program
 glUseProgram(program)
 
-# preparando espaço para 4 vértices usando 2 coordenadas (x,y)
-quadrado = np.zeros(4, [("position", np.float32, 2)])
-# preenchendo as coordenadas de cada vértice
-quadrado['position'] = [
-    (0.4, 0.6),
-    (0.4, 0.8),
-    (0.6, 0.6),
-    (0.6, 0.8)
-]
+
+def geraQuadrado(x, y, t):
+    quadrado = np.zeros(4, [("position", np.float32, 2)])
+    quadrado['position'] = [
+        (x, y),
+        (x, y+t),
+        (x+t, y),
+        (x+t, y+t)
+    ]
+    return quadrado
+
+
+quadrado = geraQuadrado(0.0, 0.0, 0.05)
+
+for i in range(4):
+    l = rnd.uniform(0.02, 0.1)
+    quadrado = np.concatenate((quadrado, geraQuadrado(0.0, 0.0, l)))
+
 
 terreno = np.zeros(4, [("position", np.float32, 2)])
 
@@ -222,28 +233,28 @@ def posBola(r):
     return [math.cos(a) * r, math.sin(a) * r]
 
 
-def calcTrajetoria(x, y, anguloLance, forca):
-    vet_vert = forca * math.sin(anguloLance)
-    vet_hor = forca * math.cos(anguloLance)
-    gravidade = 0.01
-    resVert = 0
-    i = 0
-    pontosX, pontosY = []
-    while vet_hor >= 0:
-        i += 1
-        vet_vert -= gravidade
-        vet_h = vet_hor * i
-        pontosX.append(x + vet_vert)
-        pontosY.append(y + vet_h)
-    return pontosX, pontosY
+def lancamentoBola(x, y):
+    global aBola
+    global bolaAr
+    H = math.sqrt(pow(x, 2) + pow(y, 2))
+    exp = (pow(H, 2) + pow(x, 2) - pow(y, 2)) / (2*H*x)
+    aBola = math.acos(exp)
+    bolaAr = True
+
+
+def calcLimiteLancamento():
+    global bolaAr
+    global dBola
+    if (dBola >= .95):
+        bolaAr = False
+        dBola = raioLancamento
 
 
 d = 0.0
-sentidoTransY = False
-sentidoTrans = False
-sentidoGiro = False
-x = 0.5
-y = 0.7
+raioLancamento = 0.25
+bolaAr = False
+aBola = 0.0
+dBola = raioLancamento
 diferenca = 0.009
 mat_global_transform = mat_identity()
 
@@ -255,15 +266,8 @@ while not glfw.window_should_close(window):
 
     movimentaCam()
 
-    mat_posicionamento = mat_translate(posicaoX - x, posicaoY - y)
-    mat_rotacao = mat_rotate_axis(x, y, d)
-
     mat_global_transform = multiplica_matriz(
         scale(zoomVal), mat_translate(-posicaoX, -posicaoY))
-
-    mat_transformacaoBumerangue = multiplica_matriz(
-        mat_global_transform,
-        mat_rotacao)
 
     loc = glGetUniformLocation(program, "mat_transform")
 
@@ -272,15 +276,24 @@ while not glfw.window_should_close(window):
     glClear(GL_COLOR_BUFFER_BIT)
     glClearColor(1.0, 1.0, 1.0, 1.0)
 
-    objDraw([0, 4], GL_TRIANGLE_STRIP,
-            mat_transformacaoBumerangue, [0.9, 0.5, 0.0, 0.0], [loc, loc_color])
+    for i in range(5):
+        color = np.random.uniform(0.0, 1.0, 3)
+        color = np.append(color, 1.0)        
+        objDraw([i*4, 4], GL_TRIANGLE_STRIP,
+                mat_global_transform, color, [loc, loc_color])
 
-    p = posBola(0.4)
+    if (bolaAr):
+        dBola += 0.02
+        calcLimiteLancamento()
+        p = [math.cos(aBola) * dBola, math.sin(aBola) * dBola]
+    else:
+        p = posBola(raioLancamento)
+
     mat_rotBall = mat_translate(p[0], p[1])
-    objDraw([4, 4], GL_TRIANGLE_STRIP,
+    objDraw([20, 4], GL_TRIANGLE_STRIP,
             mat_global_transform, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
 
-    objDraw([8, 10], GL_TRIANGLE_FAN,
+    objDraw([24, 10], GL_TRIANGLE_FAN,
             multiplica_matriz(mat_global_transform, mat_rotBall), [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
 
     glfw.swap_buffers(window)
