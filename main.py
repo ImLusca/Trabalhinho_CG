@@ -159,17 +159,18 @@ terreno["position"] = [
 def retornaBola(x, y, r, nv):
     circle = np.zeros(nv, [("position", np.float32, 2)])
     dPi = 6.28318
-    for i in range(nv):
-        cX = x + (r * math.cos(i * dPi/nv))
-        cY = y + (r * math.sin(i * dPi/nv))
-        circle[i] = [cX, cY]
+    circle[0] = [x, y]
+    for i in range(nv - 1):
+        cX = x + (r * math.cos(i * dPi/(nv - 2)))
+        cY = y + (r * math.sin(i * dPi/(nv - 2)))
+        circle[i + 1] = [cX, cY]
+    
     return circle
 
-
-ball = retornaBola(0, 0, 0.035, 10)
+nvBall = 10
+ball = retornaBola(0, 0, 0.035, nvBall)
 
 vertices = np.concatenate((quadrado, terreno, ball))['position']
-print(vertices)
 
 # Request a buffer slot from GPU
 buffer = glGenBuffers(1)
@@ -249,6 +250,33 @@ def calcLimiteLancamento():
         bolaAr = False
         dBola = raioLancamento
 
+def posicaoCometa(listaCometa):
+    for i in listaCometa:
+        print(i, "i")
+        i[1] -= 0.00015
+        mat = mat_translate(i[0], i[1])
+        mat = multiplica_matriz(mat_global_transform, mat)
+        objDraw([24, nvBall], GL_TRIANGLE_FAN,
+            mat, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
+
+
+def retornaCometa():
+    if(rnd.randint(1, 100) == 2):
+        xPos = rnd.uniform(-1, 1)
+        return [xPos, 0.5]
+    return None
+
+def distanciaEuclidiana(x1, y1, x2, y2):
+    return math.sqrt(pow(x1 - x2, 2) + math.sqrt(pow(y1 - y2, 2)))
+
+def calcColisao(xBola, yBola, xCometa, yCometa, minDist):
+    if (distanciaEuclidiana(xBola, yBola, xCometa, yCometa) < minDist):
+        return True
+    return False
+
+def colisaoChao(yCometa, listaCometas):
+    if (yCometa < 0.0):
+        return True
 
 d = 0.0
 raioLancamento = 0.25
@@ -257,6 +285,7 @@ aBola = 0.0
 dBola = raioLancamento
 diferenca = 0.009
 mat_global_transform = mat_identity()
+listaCometa = []
 
 while not glfw.window_should_close(window):
 
@@ -265,6 +294,9 @@ while not glfw.window_should_close(window):
     d -= diferenca
 
     movimentaCam()
+    auxCometa = retornaCometa()
+
+ 
 
     mat_global_transform = multiplica_matriz(
         scale(zoomVal), mat_translate(-posicaoX, -posicaoY))
@@ -272,9 +304,14 @@ while not glfw.window_should_close(window):
     loc = glGetUniformLocation(program, "mat_transform")
 
     # ative esse comando para enxergar os triângulos
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    # glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
     glClear(GL_COLOR_BUFFER_BIT)
     glClearColor(1.0, 1.0, 1.0, 1.0)
+
+    if(auxCometa != None):
+        listaCometa.append(auxCometa)
+    if(len(listaCometa)>0):
+        posicaoCometa(listaCometa)
 
     for i in range(5):
         color = np.random.uniform(0.0, 1.0, 3)
@@ -293,8 +330,16 @@ while not glfw.window_should_close(window):
     objDraw([20, 4], GL_TRIANGLE_STRIP,
             mat_global_transform, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
 
-    objDraw([24, 10], GL_TRIANGLE_FAN,
+    objDraw([24, nvBall], GL_TRIANGLE_FAN,
             multiplica_matriz(mat_global_transform, mat_rotBall), [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
+
+
+    # if(len(listaCometa)>0):
+    #     listaCometa[0][1] -= 0.00015
+    #     mat = mat_translate(listaCometa[0][0], listaCometa[0][1])
+    #     mat = multiplica_matriz(mat_global_transform, mat)
+    #     objDraw([24, nvBall], GL_TRIANGLE_FAN,
+    #         mat, [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
 
     glfw.swap_buffers(window)
 
