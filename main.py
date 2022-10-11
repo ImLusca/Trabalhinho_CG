@@ -1,5 +1,6 @@
 from fnmatch import translate
 from operator import concat
+from os import remove
 import glfw
 from OpenGL.GL import *
 import random as rnd
@@ -141,18 +142,13 @@ def geraQuadrado(x, y, t):
 
 quadrado = geraQuadrado(0.0, 0.0, 0.05)
 
-for i in range(4):
-    l = rnd.uniform(0.02, 0.1)
-    quadrado = np.concatenate((quadrado, geraQuadrado(0.0, 0.0, l)))
-
-
 terreno = np.zeros(4, [("position", np.float32, 2)])
 
 terreno["position"] = [
     (-10.0, -10.0),
-    (-10.0, 0.0),
+    (-10.0, -0.75),
     (10.0, -10.0),
-    (10.0, 0.0)
+    (10.0, -0.75)
 ]
 
 
@@ -164,11 +160,12 @@ def retornaBola(x, y, r, nv):
         cX = x + (r * math.cos(i * dPi/(nv - 2)))
         cY = y + (r * math.sin(i * dPi/(nv - 2)))
         circle[i + 1] = [cX, cY]
-    
+
     return circle
 
 nvBall = 10
-ball = retornaBola(0, 0, 0.035, nvBall)
+raioBola = 0.035
+ball = retornaBola(0, 0, raioBola, nvBall)
 
 vertices = np.concatenate((quadrado, terreno, ball))['position']
 
@@ -246,22 +243,22 @@ def lancamentoBola(x, y):
 def calcLimiteLancamento():
     global bolaAr
     global dBola
-    if (dBola >= .95):
+    if (dBola >= 1.25):
         bolaAr = False
         dBola = raioLancamento
 
+
 def posicaoCometa(listaCometa):
     for i in listaCometa:
-        print(i, "i")
-        i[1] -= 0.00015
+        i[1] -= 0.0015
         mat = mat_translate(i[0], i[1])
         mat = multiplica_matriz(mat_global_transform, mat)
-        objDraw([24, nvBall], GL_TRIANGLE_FAN,
-            mat, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
+        objDraw([8, nvBall], GL_TRIANGLE_FAN,
+                mat, [0.4, 0.2, 0.6, 0.0], [loc, loc_color])
 
 
 def retornaCometa():
-    if(rnd.randint(1, 100) == 2):
+    if (rnd.randint(1, 100) == 2):
         xPos = rnd.uniform(-1, 1)
         return [xPos, 0.5]
     return None
@@ -269,14 +266,11 @@ def retornaCometa():
 def distanciaEuclidiana(x1, y1, x2, y2):
     return math.sqrt(pow(x1 - x2, 2) + math.sqrt(pow(y1 - y2, 2)))
 
-def calcColisao(xBola, yBola, xCometa, yCometa, minDist):
-    if (distanciaEuclidiana(xBola, yBola, xCometa, yCometa) < minDist):
+def calcColisao(xBola, yBola, xCometa, yCometa):
+    if (distanciaEuclidiana(xBola, yBola, xCometa, yCometa) < raioBola * 2.5 ):
         return True
     return False
 
-def colisaoChao(yCometa, listaCometas):
-    if (yCometa < 0.0):
-        return True
 
 d = 0.0
 raioLancamento = 0.25
@@ -296,43 +290,49 @@ while not glfw.window_should_close(window):
     movimentaCam()
     auxCometa = retornaCometa()
 
- 
-
     mat_global_transform = multiplica_matriz(
         scale(zoomVal), mat_translate(-posicaoX, -posicaoY))
 
     loc = glGetUniformLocation(program, "mat_transform")
 
     # ative esse comando para enxergar os triângulos
-    # glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
     glClear(GL_COLOR_BUFFER_BIT)
     glClearColor(1.0, 1.0, 1.0, 1.0)
 
-    if(auxCometa != None):
+    if (auxCometa != None):
         listaCometa.append(auxCometa)
-    if(len(listaCometa)>0):
+    if (len(listaCometa) > 0):
         posicaoCometa(listaCometa)
 
     for i in range(5):
         color = np.random.uniform(0.0, 1.0, 3)
-        color = np.append(color, 1.0)        
-        objDraw([i*4, 4], GL_TRIANGLE_STRIP,
+        color = np.append(color, 1.0)
+        objDraw([0, 4], GL_TRIANGLE_STRIP,
                 mat_global_transform, color, [loc, loc_color])
 
     if (bolaAr):
-        dBola += 0.02
+        dBola += 0.01
         calcLimiteLancamento()
         p = [math.cos(aBola) * dBola, math.sin(aBola) * dBola]
+        for cometa in listaCometa:
+            if(calcColisao(*p,*cometa)):
+                listaCometa.remove(cometa)
+                print("HIT")
     else:
         p = posBola(raioLancamento)
 
+    for cometa in listaCometa:
+        if(cometa[1] < 0.0):
+            listaCometa.remove(cometa)
+            print("HIT")
+
     mat_rotBall = mat_translate(p[0], p[1])
-    objDraw([20, 4], GL_TRIANGLE_STRIP,
+    objDraw([4, 4], GL_TRIANGLE_STRIP,
             mat_global_transform, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
 
-    objDraw([24, nvBall], GL_TRIANGLE_FAN,
+    objDraw([8, nvBall], GL_TRIANGLE_FAN,
             multiplica_matriz(mat_global_transform, mat_rotBall), [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
-
 
     # if(len(listaCometa)>0):
     #     listaCometa[0][1] -= 0.00015
