@@ -1,3 +1,4 @@
+from audioop import mul
 from fnmatch import translate
 from operator import concat
 from os import remove
@@ -31,9 +32,7 @@ def camera(window, bt, scanCode, action, mods):
     x = x / (largura/2) - 1
     y = y / (altura/2) - 1
 
-    # print(x, y)
-    # p = posBola(1)
-    # print(p[0], p[1])
+    print(x, y)
 
     if (scanCode == 36 and action == 1):
         p = posBola(1)
@@ -129,26 +128,73 @@ if not glGetProgramiv(program, GL_LINK_STATUS):
 glUseProgram(program)
 
 
-def geraQuadrado(x, y, t):
+def F(u, odd, r):
+    if odd:
+        x = r * math.cos(u)
+        y = r * math.sin(u)
+    else:
+        x = r * 1/2 * math.cos(u)
+        y = r * 1/2 * math.sin(u)
+
+    return [x, y]
+
+
+def retornaEstrela(nv, r):
+    PI = 3.141592
+    step = (PI * 2)/(nv - 2)
+    r = 0.045
+    vertices_elipse = np.zeros(nv, [("position", np.float32, 2)])
+
+    vertices_elipse[0] = [0, 0]
+
+    for i in range(0, nv - 2):
+
+        u = i * step
+        if (i % 2 == 0):
+            p = F(u, True, r)
+        else:
+            p = F(u, False, r)
+
+        vertices_elipse[i + 1] = p
+    vertices_elipse[nv - 1] = vertices_elipse[1]
+
+    print(vertices_elipse[nv - 1], vertices_elipse[1])
+
+    return vertices_elipse
+
+
+nvEstrela = 16
+r = 0.2
+vertices_estrela = retornaEstrela(nvEstrela, r)
+
+
+def geraRetangulo(x, y, tx,ty):
     quadrado = np.zeros(4, [("position", np.float32, 2)])
     quadrado['position'] = [
         (x, y),
-        (x, y+t),
-        (x+t, y),
-        (x+t, y+t)
+        (x, y+ty),
+        (x+tx, y),
+        (x+tx, y+ty)
     ]
     return quadrado
 
-
-quadrado = geraQuadrado(0.0, 0.0, 0.05)
 
 terreno = np.zeros(4, [("position", np.float32, 2)])
 
 terreno["position"] = [
     (-10.0, -10.0),
-    (-10.0, -0.75),
+    (-10.0, 0),
     (10.0, -10.0),
-    (10.0, -0.75)
+    (10.0, 0)
+]
+
+terreno2 = np.zeros(4, [("position", np.float32, 2)])
+
+terreno2["position"] = [
+    (-10.0, -10.0),
+    (-10.0, -0.3),
+    (10.0, -10.0),
+    (10.0, -0.3)
 ]
 
 
@@ -163,11 +209,35 @@ def retornaBola(x, y, r, nv):
 
     return circle
 
-nvBall = 10
+
+nvBall = 15
 raioBola = 0.035
 ball = retornaBola(0, 0, raioBola, nvBall)
 
-vertices = np.concatenate((quadrado, terreno, ball))['position']
+
+def retornoFaixa(r):
+    faixa = np.zeros(4, [("position", np.float32, 2)])
+    dPI = 3.141592
+
+    cX = r * math.cos(dPI/4.5)
+    cY = r * math.sin(dPI/4.5)
+    faixa[0] = [cX, cY]
+    cX = r * math.cos((dPI/3))
+    cY = r * math.sin((dPI/3))
+    faixa[1] = [cX, cY]
+    cX = r * math.cos((dPI/1.28))
+    cY = r * math.sin((dPI/1.28))
+    faixa[2] = [cX, cY]
+    cX = r * math.cos((dPI/1.5))
+    cY = r * math.sin((dPI/1.5))
+    faixa[3] = [cX, cY]
+
+    return faixa
+
+
+
+vertices = np.concatenate(
+    (terreno, terreno2, ball, vertices_estrela, retornoFaixa(raioBola)))['position']
 
 # Request a buffer slot from GPU
 buffer = glGenBuffers(1)
@@ -243,7 +313,7 @@ def lancamentoBola(x, y):
 def calcLimiteLancamento():
     global bolaAr
     global dBola
-    if (dBola >= 1.25):
+    if (dBola >= 1.4):
         bolaAr = False
         dBola = raioLancamento
 
@@ -254,26 +324,26 @@ def posicaoCometa(listaCometa):
         mat = mat_translate(i[0], i[1])
         mat = multiplica_matriz(mat_global_transform, mat)
         objDraw([8, nvBall], GL_TRIANGLE_FAN,
-                mat, [0.4, 0.2, 0.6, 0.0], [loc, loc_color])
+                mat, [0.8, 0.8, 0.8, 0.0], [loc, loc_color])
 
 
 def retornaCometa():
     if (rnd.randint(1, 100) == 2):
         xPos = rnd.uniform(-1, 1)
-        return [xPos, 0.5]
+        return [xPos, 1.2]
     return None
 
 def distanciaEuclidiana(x1, y1, x2, y2):
     return math.sqrt(pow(x1 - x2, 2) + math.sqrt(pow(y1 - y2, 2)))
 
 def calcColisao(xBola, yBola, xCometa, yCometa):
-    if (distanciaEuclidiana(xBola, yBola, xCometa, yCometa) < raioBola * 2.5 ):
+    if (distanciaEuclidiana(xBola, yBola, xCometa, yCometa) < raioBola * 3):
         return True
     return False
 
 
 d = 0.0
-raioLancamento = 0.25
+raioLancamento = 0.1
 bolaAr = False
 aBola = 0.0
 dBola = raioLancamento
@@ -296,50 +366,59 @@ while not glfw.window_should_close(window):
     loc = glGetUniformLocation(program, "mat_transform")
 
     # ative esse comando para enxergar os triângulos
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    #glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
     glClear(GL_COLOR_BUFFER_BIT)
-    glClearColor(1.0, 1.0, 1.0, 1.0)
+    glClearColor(0.1884313, 0.189431, 0.42372, 1.0)
 
     if (auxCometa != None):
         listaCometa.append(auxCometa)
     if (len(listaCometa) > 0):
         posicaoCometa(listaCometa)
 
-    for i in range(5):
-        color = np.random.uniform(0.0, 1.0, 3)
-        color = np.append(color, 1.0)
-        objDraw([0, 4], GL_TRIANGLE_STRIP,
-                mat_global_transform, color, [loc, loc_color])
-
     if (bolaAr):
-        dBola += 0.01
+        dBola += 0.015
+        diferenca = 0.2
         calcLimiteLancamento()
         p = [math.cos(aBola) * dBola, math.sin(aBola) * dBola]
         for cometa in listaCometa:
-            if(calcColisao(*p,*cometa)):
+            if (calcColisao(*p, *cometa)):
                 listaCometa.remove(cometa)
-                print("HIT")
     else:
+        diferenca = 0.009
         p = posBola(raioLancamento)
 
     for cometa in listaCometa:
-        if(cometa[1] < 0.0):
+        if (cometa[1] < 0.0):
             listaCometa.remove(cometa)
-            print("HIT")
 
-    mat_rotBall = mat_translate(p[0], p[1])
-    objDraw([4, 4], GL_TRIANGLE_STRIP,
+    a, b = vertices_estrela['position'][0]
+
+    mat_transformacaoEstrela = mat_rotate_axis(a, b, d)
+
+    mat_transformacaoEstrela = multiplica_matriz(
+        mat_translate(*p), mat_rotate_axis(a, b, d))
+
+    objDraw([0, 4], GL_TRIANGLE_STRIP,
             mat_global_transform, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
 
-    objDraw([8, nvBall], GL_TRIANGLE_FAN,
-            multiplica_matriz(mat_global_transform, mat_rotBall), [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
+    objDraw([4, 4], GL_TRIANGLE_STRIP,
+            mat_global_transform, [0.8, 0.6, 0.05, 0.0], [loc, loc_color])
 
-    # if(len(listaCometa)>0):
-    #     listaCometa[0][1] -= 0.00015
-    #     mat = mat_translate(listaCometa[0][0], listaCometa[0][1])
-    #     mat = multiplica_matriz(mat_global_transform, mat)
-    #     objDraw([24, nvBall], GL_TRIANGLE_FAN,
-    #         mat, [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
+    # objDraw([8, nvBall], GL_TRIANGLE_FAN,
+    #         multiplica_matriz(mat_global_transform, mat_rotBall), [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
+
+    objDraw([23, nvEstrela], GL_TRIANGLE_FAN,
+            mat_transformacaoEstrela, [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
+
+    
+
+
+    objDraw([8, nvBall], GL_TRIANGLE_FAN,
+            multiplica_matriz(scale(1.45), mat_translate(0, 0)), [1, 0.77, 0.61, 0.0], [loc, loc_color])
+    objDraw([8, nvBall], GL_TRIANGLE_FAN,
+            multiplica_matriz(scale(1.45), mat_translate(0, -0.05)), [0, 0, 0, 0.0], [loc, loc_color])
+    objDraw([8 + nvBall + nvEstrela, 4], GL_TRIANGLE_STRIP,
+            multiplica_matriz(scale(1.45), mat_translate(0, 0)), [0, 0, 0, 0.0], [loc, loc_color])
 
     glfw.swap_buffers(window)
 
