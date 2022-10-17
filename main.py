@@ -34,7 +34,7 @@ def camera(window, bt, scanCode, action, mods):
 
     print(x, y)
 
-    if (scanCode == 36 and action == 1):
+    if (scanCode == 36 and action == 1 and not shurikenAr):
         p = posBola(1)
         lancamentoBola(p[0], p[1])
 
@@ -168,7 +168,7 @@ r = 0.2
 vertices_estrela = retornaEstrela(nvEstrela, r)
 
 
-def geraRetangulo(x, y, tx,ty):
+def geraRetangulo(x, y, tx, ty):
     quadrado = np.zeros(4, [("position", np.float32, 2)])
     quadrado['position'] = [
         (x, y),
@@ -235,7 +235,6 @@ def retornoFaixa(r):
     return faixa
 
 
-
 vertices = np.concatenate(
     (terreno, terreno2, ball, vertices_estrela, retornoFaixa(raioBola)))['position']
 
@@ -259,15 +258,22 @@ glVertexAttribPointer(loc, 2, GL_FLOAT, False, stride, offset)
 def movimentaCam():
     global posicaoX
     global posicaoY
+    global ninjaPulando
     velocidadeCam = 0.04
     if (teclas[0] == 1):
         posicaoX += velocidadeCam
     if (teclas[1] == 1):
         posicaoX -= velocidadeCam
-    if (teclas[2] == 1):
-        posicaoY -= velocidadeCam
     if (teclas[3] == 1):
-        posicaoY += velocidadeCam
+        ninjaPulando = True
+
+    if ninjaPulando and posicaoY < limitePulo:
+        posicaoY += velocidadePulo
+    elif posicaoY >= limitePulo:
+        ninjaPulando = False
+    
+    if not ninjaPulando and posicaoY > 0.0:
+        posicaoY -= velocidadePulo
 
 
 def multiplica_matriz(a, b):
@@ -303,22 +309,22 @@ def posBola(r):
 
 def lancamentoBola(x, y):
     global aBola
-    global bolaAr
+    global shurikenAr
     H = math.sqrt(pow(x, 2) + pow(y, 2))
     exp = (pow(H, 2) + pow(x, 2) - pow(y, 2)) / (2*H*x)
     aBola = math.acos(exp)
-    bolaAr = True
+    shurikenAr = True
 
 
 def calcLimiteLancamento():
-    global bolaAr
-    global dBola
-    if (dBola >= 1.4):
-        bolaAr = False
-        dBola = raioLancamento
+    global shurikenAr
+    global dshuriken
+    if (dshuriken >= 1.4):
+        shurikenAr = False
+        dshuriken = raioLancamento
 
 
-def posicaoCometa(listaCometa):
+def desenhaCometa(listaCometa):
     for i in listaCometa:
         i[1] -= 0.0015
         mat = mat_translate(i[0], i[1])
@@ -333,20 +339,46 @@ def retornaCometa():
         return [xPos, 1.2]
     return None
 
+
+def desenhaNinja():
+    objDraw([8, nvBall], GL_TRIANGLE_FAN,
+            multiplica_matriz(scale(1.45), mat_translate(0, 0)), [1, 0.77, 0.61, 0.0], [loc, loc_color])
+    objDraw([8, nvBall], GL_TRIANGLE_FAN,
+            multiplica_matriz(scale(1.45), mat_translate(0, -0.05)), [0, 0, 0, 0.0], [loc, loc_color])
+    objDraw([8 + nvBall + nvEstrela, 4], GL_TRIANGLE_STRIP,
+            multiplica_matriz(scale(1.45), mat_translate(0, 0)), [0, 0, 0, 0.0], [loc, loc_color])
+
+
+def lancamentoShuriken():
+    global dshuriken
+    global diferenca
+    if (shurikenAr):
+        dshuriken += 0.023
+        diferenca = 0.2
+        calcLimiteLancamento()
+        p = [math.cos(aBola) * dshuriken, math.sin(aBola) * dshuriken]
+        for cometa in listaCometa:
+            if (calcColisao(*p, *cometa)):
+                listaCometa.remove(cometa)
+    else:
+        diferenca = 0.009
+        p = posBola(raioLancamento)
+    return p
+
 def distanciaEuclidiana(x1, y1, x2, y2):
     return math.sqrt(pow(x1 - x2, 2) + math.sqrt(pow(y1 - y2, 2)))
 
 def calcColisao(xBola, yBola, xCometa, yCometa):
-    if (distanciaEuclidiana(xBola, yBola, xCometa, yCometa) < raioBola * 3):
-        return True
-    return False
-
+    return distanciaEuclidiana(xBola, yBola, xCometa - posicaoX, yCometa) < raioBola * 3
 
 d = 0.0
 raioLancamento = 0.1
-bolaAr = False
+shurikenAr = False
+ninjaPulando = False
+limitePulo = 0.2
+velocidadePulo = 0.015
 aBola = 0.0
-dBola = raioLancamento
+dshuriken = raioLancamento
 diferenca = 0.009
 mat_global_transform = mat_identity()
 listaCometa = []
@@ -373,19 +405,9 @@ while not glfw.window_should_close(window):
     if (auxCometa != None):
         listaCometa.append(auxCometa)
     if (len(listaCometa) > 0):
-        posicaoCometa(listaCometa)
+        desenhaCometa(listaCometa)
 
-    if (bolaAr):
-        dBola += 0.015
-        diferenca = 0.2
-        calcLimiteLancamento()
-        p = [math.cos(aBola) * dBola, math.sin(aBola) * dBola]
-        for cometa in listaCometa:
-            if (calcColisao(*p, *cometa)):
-                listaCometa.remove(cometa)
-    else:
-        diferenca = 0.009
-        p = posBola(raioLancamento)
+    posShuriken = lancamentoShuriken()
 
     for cometa in listaCometa:
         if (cometa[1] < 0.0):
@@ -396,7 +418,7 @@ while not glfw.window_should_close(window):
     mat_transformacaoEstrela = mat_rotate_axis(a, b, d)
 
     mat_transformacaoEstrela = multiplica_matriz(
-        mat_translate(*p), mat_rotate_axis(a, b, d))
+        mat_translate(*posShuriken), mat_rotate_axis(a, b, d))
 
     objDraw([0, 4], GL_TRIANGLE_STRIP,
             mat_global_transform, [0.2, 0.8, 0.05, 0.0], [loc, loc_color])
@@ -410,15 +432,7 @@ while not glfw.window_should_close(window):
     objDraw([23, nvEstrela], GL_TRIANGLE_FAN,
             mat_transformacaoEstrela, [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
 
-    
-
-
-    objDraw([8, nvBall], GL_TRIANGLE_FAN,
-            multiplica_matriz(scale(1.45), mat_translate(0, 0)), [1, 0.77, 0.61, 0.0], [loc, loc_color])
-    objDraw([8, nvBall], GL_TRIANGLE_FAN,
-            multiplica_matriz(scale(1.45), mat_translate(0, -0.05)), [0, 0, 0, 0.0], [loc, loc_color])
-    objDraw([8 + nvBall + nvEstrela, 4], GL_TRIANGLE_STRIP,
-            multiplica_matriz(scale(1.45), mat_translate(0, 0)), [0, 0, 0, 0.0], [loc, loc_color])
+    desenhaNinja()
 
     glfw.swap_buffers(window)
 
