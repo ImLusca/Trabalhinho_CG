@@ -2,7 +2,6 @@ from OpenGL.GL import *
 import glfw
 import math
 
-
 class Corpo:
     def __init__(self, _loc):
         props = []
