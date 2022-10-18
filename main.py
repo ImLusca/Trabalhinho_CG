@@ -1,3 +1,15 @@
+"""
+    TRABALHO 1 - COMPUTAÇÃO GRÁFICA
+
+    JOGO
+
+    ALUNOS:
+        Lucas Pacheco
+        Pedro Batista
+        Théo Riffel
+    
+"""
+
 from audioop import mul
 from fnmatch import translate
 from operator import concat
@@ -24,7 +36,7 @@ posicaoY = 0.0
 zoomVal = 1.0
 teclas = [0] * 4
 
-
+# posicionamento e mapeamento das teclas
 def camera(window, bt, scanCode, action, mods):
     global teclas
 
@@ -49,7 +61,7 @@ def camera(window, bt, scanCode, action, mods):
 
 glfw.set_key_callback(window, camera)
 
-
+# controla o zoom da camera no cenário
 def zoom(win, dx, dy):
     global zoomVal
     if (dy > 0):
@@ -138,7 +150,7 @@ def F(u, odd, r):
 
     return [x, y]
 
-
+# define os vertices da estrela
 def retornaEstrela(nv, r):
     PI = 3.141592
     step = (PI * 2)/(nv - 2)
@@ -167,8 +179,8 @@ nvEstrela = 16
 r = 0.2
 vertices_estrela = retornaEstrela(nvEstrela, r)
 
-
-def geraRetangulo(x, y, tx, ty):
+# define os terreno
+def geraRetangulo(x, y, tx,ty):
     quadrado = np.zeros(4, [("position", np.float32, 2)])
     quadrado['position'] = [
         (x, y),
@@ -197,7 +209,7 @@ terreno2["position"] = [
     (10.0, -0.3)
 ]
 
-
+# define o formato da bola
 def retornaBola(x, y, r, nv):
     circle = np.zeros(nv, [("position", np.float32, 2)])
     dPi = 6.28318
@@ -214,7 +226,7 @@ nvBall = 15
 raioBola = 0.035
 ball = retornaBola(0, 0, raioBola, nvBall)
 
-
+# define o posicionamento da faixa do ninja
 def retornoFaixa(r):
     faixa = np.zeros(4, [("position", np.float32, 2)])
     dPI = 3.141592
@@ -254,7 +266,7 @@ loc_color = glGetUniformLocation(program, "color")
 glEnableVertexAttribArray(loc)
 glVertexAttribPointer(loc, 2, GL_FLOAT, False, stride, offset)
 
-
+# define o movimento da camera pelo cenário
 def movimentaCam():
     global posicaoX
     global posicaoY
@@ -275,7 +287,6 @@ def movimentaCam():
     if not ninjaPulando and posicaoY > 0.0:
         posicaoY -= velocidadePulo
 
-
 def multiplica_matriz(a, b):
     m_a = a.reshape(4, 4)
     m_b = b.reshape(4, 4)
@@ -286,7 +297,7 @@ def multiplica_matriz(a, b):
 
 glfw.show_window(window)
 
-
+#define o posicionamento da shuriken
 def posBola(r):
     x, y = glfw.get_cursor_pos(window)
     x = x / (largura/2) - 1
@@ -306,7 +317,7 @@ def posBola(r):
     a = math.acos(exp)
     return [math.cos(a) * r, math.sin(a) * r]
 
-
+# define o lançamento da shuriken
 def lancamentoBola(x, y):
     global aBola
     global shurikenAr
@@ -332,10 +343,10 @@ def desenhaCometa(listaCometa):
         objDraw([8, nvBall], GL_TRIANGLE_FAN,
                 mat, [0.8, 0.8, 0.8, 0.0], [loc, loc_color])
 
-
+# define a construção do disco cometa
 def retornaCometa():
-    if (rnd.randint(1, 100) == 2):
-        xPos = rnd.uniform(-1, 1)
+    if (rnd.randint(1, 100) == 2): # chance aleattória de ser criado
+        xPos = rnd.uniform(-1, 1) # posicionamento x aleatório do disco na tela
         return [xPos, 1.2]
     return None
 
@@ -428,9 +439,6 @@ while not glfw.window_should_close(window):
 
     objDraw([4, 4], GL_TRIANGLE_STRIP,
             mat_global_transform, [0.8, 0.6, 0.05, 0.0], [loc, loc_color])
-
-    # objDraw([8, nvBall], GL_TRIANGLE_FAN,
-    #         multiplica_matriz(mat_global_transform, mat_rotBall), [0.7, 0.1, 0.1, 0.0], [loc, loc_color])
 
     objDraw([23, nvEstrela], GL_TRIANGLE_FAN,
             mat_transformacaoEstrela, [0.7, 0.1, 0.1, 0.0], [loc, loc_color])

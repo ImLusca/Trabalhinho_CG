@@ -2,7 +2,6 @@ import math
 import numpy as np
 from OpenGL.GL import *
 
-
 def mat_translate(x, y):
     return np.array([1.0, 0.0, 0.0, x,
                      0.0, 1.0, 0.0, y,
