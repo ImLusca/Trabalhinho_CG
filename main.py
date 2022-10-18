@@ -264,14 +264,14 @@ def movimentaCam():
         posicaoX += velocidadeCam
     if (teclas[1] == 1):
         posicaoX -= velocidadeCam
-    if (teclas[3] == 1):
+    if (teclas[3] == 1 and posicaoY <= 0.010):
         ninjaPulando = True
 
     if ninjaPulando and posicaoY < limitePulo:
         posicaoY += velocidadePulo
     elif posicaoY >= limitePulo:
         ninjaPulando = False
-    
+
     if not ninjaPulando and posicaoY > 0.0:
         posicaoY -= velocidadePulo
 
@@ -354,7 +354,7 @@ def lancamentoShuriken():
     global diferenca
     if (shurikenAr):
         dshuriken += 0.023
-        diferenca = 0.2
+        diferenca = 0.3
         calcLimiteLancamento()
         p = [math.cos(aBola) * dshuriken, math.sin(aBola) * dshuriken]
         for cometa in listaCometa:
@@ -365,11 +365,14 @@ def lancamentoShuriken():
         p = posBola(raioLancamento)
     return p
 
+
 def distanciaEuclidiana(x1, y1, x2, y2):
     return math.sqrt(pow(x1 - x2, 2) + math.sqrt(pow(y1 - y2, 2)))
 
+
 def calcColisao(xBola, yBola, xCometa, yCometa):
     return distanciaEuclidiana(xBola, yBola, xCometa - posicaoX, yCometa) < raioBola * 3
+
 
 d = 0.0
 raioLancamento = 0.1
